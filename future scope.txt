@@ -1,0 +1,11 @@
+echo "# video-speed-controller" >> README.md
+git init
+git add .
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/bibekchandsah/video-speed-controller.git
+git push -u origin main
+
+git remote add origin https://github.com/bibekchandsah/video-speed-controller.git
+git branch -M main
+git push -u origin main
