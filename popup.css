@@ -18,6 +18,8 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
 /* Header Styles */
@@ -53,6 +55,135 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+.popup-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.popup-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Keyboard Shortcuts Configuration */
+.shortcut-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.shortcut-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shortcut-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.shortcut-input-container {
+  display: flex;
+  gap: 8px;
+}
+
+.shortcut-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 13px;
+  background: white;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  color: #333;
+  cursor: default;
+}
+
+.shortcut-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.shortcut-input.recording {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.shortcut-btn {
+  padding: 8px 12px;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 60px;
+}
+
+.shortcut-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.5);
+}
+
+.shortcut-btn.recording {
+  background: #f59e0b;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.shortcut-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.reset-btn {
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.reset-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 /* Setting Sections */
@@ -122,11 +253,11 @@ body {
   border-radius: 50%;
 }
 
-input:checked + .toggle-slider {
+input:checked+.toggle-slider {
   background-color: #667eea;
 }
 
-input:checked + .toggle-slider:before {
+input:checked+.toggle-slider:before {
   transform: translateX(20px);
 }
 
@@ -194,7 +325,8 @@ input:checked + .toggle-slider:before {
 }
 
 /* Speed Presets */
-.speed-presets, .max-speed-presets {
+.speed-presets,
+.max-speed-presets {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
@@ -256,11 +388,12 @@ input:checked + .toggle-slider:before {
 
 /* Messages */
 .message-container {
-  position: absolute;
+  position: fixed;
   top: 16px;
   left: 16px;
   right: 16px;
-  z-index: 1000;
+  z-index: 10000;
+  pointer-events: none;
 }
 
 .message {
@@ -269,6 +402,10 @@ input:checked + .toggle-slider:before {
   font-size: 13px;
   text-align: center;
   animation: slideDown 0.3s ease-out;
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .message.success {
@@ -288,6 +425,7 @@ input:checked + .toggle-slider:before {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -313,7 +451,7 @@ input:checked + .toggle-slider:before {
   .popup-content {
     gap: 16px;
   }
-  
+
   .setting-section {
     padding: 12px;
   }

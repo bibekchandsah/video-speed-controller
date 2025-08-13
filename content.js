@@ -10,6 +10,11 @@ class VideoSpeedController {
     this.speedDisplay = null;
     this.displayTimeout = null;
     this.maxSpeed = 4.0; // Default max speed, will be loaded from settings
+    this.shortcuts = {
+      increase: { key: 'Period', shift: true, ctrl: false, alt: false },
+      decrease: { key: 'Comma', shift: true, ctrl: false, alt: false },
+      reset: { key: 'KeyR', shift: true, ctrl: false, alt: false }
+    };
     
     this.init();
   }
@@ -20,6 +25,7 @@ class VideoSpeedController {
     this.setupKeyboardShortcuts();
     this.createSpeedDisplay();
     this.findExistingVideos();
+    this.setupDisplayProtection();
     
     // Listen for messages from popup
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -33,11 +39,18 @@ class VideoSpeedController {
         'persistenceEnabled',
         `speed_${this.domain}`,
         'globalEnabled',
-        'maxSpeed'
+        'maxSpeed',
+        'shortcuts'
       ]);
       
       this.isEnabled = result.globalEnabled !== false;
       this.maxSpeed = result.maxSpeed || 4.0;
+      
+      // Load custom shortcuts
+      if (result.shortcuts) {
+        this.shortcuts = result.shortcuts;
+      }
+      
       const savedSpeed = result[`speed_${this.domain}`];
       
       if (result.persistenceEnabled !== false && savedSpeed) {
@@ -114,24 +127,25 @@ class VideoSpeedController {
         return;
       }
 
-      // Shift + > (faster)
-      if (event.shiftKey && event.code === 'Period') {
+      // Check for custom shortcuts
+      if (this.matchesShortcut(event, this.shortcuts.increase)) {
         event.preventDefault();
         this.increaseSpeed();
-      }
-      
-      // Shift + < (slower)
-      if (event.shiftKey && event.code === 'Comma') {
+      } else if (this.matchesShortcut(event, this.shortcuts.decrease)) {
         event.preventDefault();
         this.decreaseSpeed();
-      }
-      
-      // Reset to normal speed (Shift + R)
-      if (event.shiftKey && event.code === 'KeyR') {
+      } else if (this.matchesShortcut(event, this.shortcuts.reset)) {
         event.preventDefault();
         this.setSpeed(1.0);
       }
     });
+  }
+
+  matchesShortcut(event, shortcut) {
+    return event.code === shortcut.key &&
+           event.shiftKey === shortcut.shift &&
+           event.ctrlKey === shortcut.ctrl &&
+           event.altKey === shortcut.alt;
   }
 
   increaseSpeed() {
@@ -173,46 +187,86 @@ class VideoSpeedController {
     this.speedDisplay = document.createElement('div');
     this.speedDisplay.id = 'video-speed-display';
     this.speedDisplay.style.cssText = `
-      position: fixed;
-      top: 30px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-20px);
-      background: rgba(255, 255, 255, 0.15);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 25px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 16px;
-      font-weight: 700;
-      z-index: 10000;
-      opacity: 0;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      pointer-events: none;
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      position: fixed !important;
+      top: 20px !important;
+      left: 50% !important;
+      transform: translateX(-50%) translateY(-20px) !important;
+      background: rgba(255, 255, 255, 0.15) !important;
+      color: white !important;
+      padding: 12px 24px !important;
+      border-radius: 25px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-size: 16px !important;
+      font-weight: 700 !important;
+      z-index: 2147483647 !important;
+      opacity: 0 !important;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      pointer-events: none !important;
+      backdrop-filter: blur(20px) !important;
+      -webkit-backdrop-filter: blur(20px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 
                   0 2px 8px rgba(0, 0, 0, 0.2),
-                  inset 0 1px 0 rgba(255, 255, 255, 0.4);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-      min-width: 80px;
-      text-align: center;
-      letter-spacing: 0.5px;
+                  inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      min-width: 80px !important;
+      text-align: center !important;
+      letter-spacing: 0.5px !important;
+      margin: 0 !important;
+      width: auto !important;
+      height: auto !important;
+      display: block !important;
+      visibility: visible !important;
+      overflow: visible !important;
+      clip: auto !important;
+      clip-path: none !important;
     `;
-    document.body.appendChild(this.speedDisplay);
+    
+    // Ensure it's added to the document root to avoid any container restrictions
+    if (document.body) {
+      document.body.appendChild(this.speedDisplay);
+    } else {
+      document.documentElement.appendChild(this.speedDisplay);
+    }
+  }
+
+  setupDisplayProtection() {
+    // Periodically check if the display element is still properly positioned
+    setInterval(() => {
+      if (this.speedDisplay && document.contains(this.speedDisplay)) {
+        // Ensure the display maintains its properties
+        const computedStyle = window.getComputedStyle(this.speedDisplay);
+        if (computedStyle.position !== 'fixed' || computedStyle.zIndex < '2147483647') {
+          this.createSpeedDisplay();
+        }
+      }
+    }, 5000);
   }
 
   showSpeedDisplay() {
-    if (!this.speedDisplay) return;
+    if (!this.speedDisplay) {
+      this.createSpeedDisplay();
+    }
+    
+    // Ensure the display is still in the DOM
+    if (!document.contains(this.speedDisplay)) {
+      if (document.body) {
+        document.body.appendChild(this.speedDisplay);
+      } else {
+        document.documentElement.appendChild(this.speedDisplay);
+      }
+    }
     
     this.speedDisplay.textContent = `${this.currentSpeed}x`;
-    this.speedDisplay.style.opacity = '1';
-    this.speedDisplay.style.transform = 'translateX(-50%) translateY(0)';
+    this.speedDisplay.style.setProperty('opacity', '1', 'important');
+    this.speedDisplay.style.setProperty('transform', 'translateX(-50%) translateY(0)', 'important');
+    this.speedDisplay.style.setProperty('visibility', 'visible', 'important');
+    this.speedDisplay.style.setProperty('display', 'block', 'important');
     
     clearTimeout(this.displayTimeout);
     this.displayTimeout = setTimeout(() => {
-      this.speedDisplay.style.opacity = '0';
-      this.speedDisplay.style.transform = 'translateX(-50%) translateY(-20px)';
+      this.speedDisplay.style.setProperty('opacity', '0', 'important');
+      this.speedDisplay.style.setProperty('transform', 'translateX(-50%) translateY(-20px)', 'important');
     }, 2500);
   }
 
@@ -247,6 +301,11 @@ class VideoSpeedController {
       case 'updateMaxSpeed':
         this.maxSpeed = message.maxSpeed;
         sendResponse({ success: true, maxSpeed: this.maxSpeed });
+        break;
+        
+      case 'updateShortcuts':
+        this.shortcuts = message.shortcuts;
+        sendResponse({ success: true, shortcuts: this.shortcuts });
         break;
         
       default:

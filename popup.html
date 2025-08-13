@@ -75,6 +75,41 @@
         </div>
       </section>
 
+      <!-- Keyboard Shortcuts Configuration Section -->
+      <section class="setting-section">
+        <div class="setting-header">
+          <h2>Keyboard Shortcuts</h2>
+          <p class="setting-description">Customize your keyboard shortcuts for speed control</p>
+        </div>
+        <div class="shortcut-config">
+          <div class="shortcut-item">
+            <label class="shortcut-label">Increase Speed:</label>
+            <div class="shortcut-input-container">
+              <input type="text" id="increaseShortcut" class="shortcut-input" placeholder="Shift+>" readonly>
+              <button class="shortcut-btn" id="recordIncreaseBtn">Record</button>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <label class="shortcut-label">Decrease Speed:</label>
+            <div class="shortcut-input-container">
+              <input type="text" id="decreaseShortcut" class="shortcut-input" placeholder="Shift+<" readonly>
+              <button class="shortcut-btn" id="recordDecreaseBtn">Record</button>
+            </div>
+          </div>
+          <div class="shortcut-item">
+            <label class="shortcut-label">Reset Speed:</label>
+            <div class="shortcut-input-container">
+              <input type="text" id="resetShortcut" class="shortcut-input" placeholder="Shift+R" readonly>
+              <button class="shortcut-btn" id="recordResetBtn">Record</button>
+            </div>
+          </div>
+        </div>
+        <div class="shortcut-actions">
+          <button id="saveShortcutsBtn" class="apply-btn">Save Shortcuts</button>
+          <button id="resetShortcutsBtn" class="reset-btn">Reset to Default</button>
+        </div>
+      </section>
+
       <!-- Current Status Section -->
       <section class="setting-section">
         <div class="setting-header">
@@ -105,7 +140,7 @@
     <!-- Footer -->
     <footer class="popup-footer">
       <div class="keyboard-shortcuts">
-        <small>Shortcuts: Shift+&gt; (faster) | Shift+&lt; (slower)</small>
+        <small id="shortcutDisplay">Shortcuts: Shift+&gt; (faster) | Shift+&lt; (slower) | Shift+R (reset)</small>
       </div>
     </footer>
   </div>
