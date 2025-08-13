@@ -22,11 +22,15 @@ class PopupController {
       persistenceLabel: document.getElementById('persistenceLabel'),
       speedInput: document.getElementById('speedInput'),
       applySpeedBtn: document.getElementById('applySpeedBtn'),
+      maxSpeedInput: document.getElementById('maxSpeedInput'),
+      saveMaxSpeedBtn: document.getElementById('saveMaxSpeedBtn'),
       currentSpeed: document.getElementById('currentSpeed'),
       currentDomain: document.getElementById('currentDomain'),
+      maxSpeedDisplay: document.getElementById('maxSpeedDisplay'),
       messageContainer: document.getElementById('messageContainer'),
       messageText: document.getElementById('messageText'),
-      presetBtns: document.querySelectorAll('.preset-btn')
+      presetBtns: document.querySelectorAll('.preset-btn:not(.max-preset)'),
+      maxPresetBtns: document.querySelectorAll('.max-preset')
     };
   }
 
@@ -47,12 +51,33 @@ class PopupController {
       this.applyManualSpeed();
     });
 
+    // Max speed input and button
+    this.elements.maxSpeedInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.saveMaxSpeed();
+      }
+    });
+
+    this.elements.saveMaxSpeedBtn.addEventListener('click', () => {
+      this.saveMaxSpeed();
+    });
+
     // Preset buttons
     this.elements.presetBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         const speed = parseFloat(btn.dataset.speed);
         this.applySpeed(speed);
         this.updatePresetButtons(speed);
+      });
+    });
+
+    // Max speed preset buttons
+    this.elements.maxPresetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const maxSpeed = parseFloat(btn.dataset.speed);
+        this.elements.maxSpeedInput.value = maxSpeed;
+        this.saveMaxSpeed();
+        this.updateMaxPresetButtons(maxSpeed);
       });
     });
   }
@@ -70,12 +95,19 @@ class PopupController {
     try {
       const result = await chrome.storage.sync.get([
         'persistenceEnabled',
-        'globalEnabled'
+        'globalEnabled',
+        'maxSpeed'
       ]);
       
       const persistenceEnabled = result.persistenceEnabled !== false;
       this.elements.persistenceToggle.checked = persistenceEnabled;
       this.elements.persistenceLabel.textContent = persistenceEnabled ? 'Enabled' : 'Disabled';
+      
+      const maxSpeed = result.maxSpeed || 4.0;
+      this.elements.maxSpeedInput.value = maxSpeed;
+      this.elements.maxSpeedDisplay.textContent = `${maxSpeed}x`;
+      this.elements.speedInput.max = maxSpeed;
+      this.updateMaxPresetButtons(maxSpeed);
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -118,14 +150,43 @@ class PopupController {
 
   async applyManualSpeed() {
     const speedValue = parseFloat(this.elements.speedInput.value);
+    const maxSpeed = parseFloat(this.elements.maxSpeedInput.value) || 4.0;
     
-    if (isNaN(speedValue) || speedValue < 0.25 || speedValue > 4.0) {
-      this.showMessage('Please enter a speed between 0.25x and 4.0x', 'error');
+    if (isNaN(speedValue) || speedValue < 0.25 || speedValue > maxSpeed) {
+      this.showMessage(`Please enter a speed between 0.25x and ${maxSpeed}x`, 'error');
       return;
     }
 
     await this.applySpeed(speedValue);
     this.updatePresetButtons(speedValue);
+  }
+
+  async saveMaxSpeed() {
+    const maxSpeedValue = parseFloat(this.elements.maxSpeedInput.value);
+    
+    if (isNaN(maxSpeedValue) || maxSpeedValue < 2.0 || maxSpeedValue > 10.0) {
+      this.showMessage('Please enter a max speed between 2.0x and 10.0x', 'error');
+      return;
+    }
+
+    try {
+      await chrome.storage.sync.set({ maxSpeed: maxSpeedValue });
+      this.elements.maxSpeedDisplay.textContent = `${maxSpeedValue}x`;
+      this.elements.speedInput.max = maxSpeedValue;
+      this.updateMaxPresetButtons(maxSpeedValue);
+      this.showMessage(`Maximum speed set to ${maxSpeedValue}x`, 'success');
+      
+      // Notify content script about max speed change
+      if (this.currentTab) {
+        await chrome.tabs.sendMessage(this.currentTab.id, {
+          action: 'updateMaxSpeed',
+          maxSpeed: maxSpeedValue
+        });
+      }
+    } catch (error) {
+      console.error('Error saving max speed:', error);
+      this.showMessage('Error saving max speed setting', 'error');
+    }
   }
 
   async applySpeed(speed) {
@@ -157,6 +218,17 @@ class PopupController {
     this.elements.presetBtns.forEach(btn => {
       const btnSpeed = parseFloat(btn.dataset.speed);
       if (Math.abs(btnSpeed - currentSpeed) < 0.01) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  updateMaxPresetButtons(currentMaxSpeed) {
+    this.elements.maxPresetBtns.forEach(btn => {
+      const btnSpeed = parseFloat(btn.dataset.speed);
+      if (Math.abs(btnSpeed - currentMaxSpeed) < 0.01) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');

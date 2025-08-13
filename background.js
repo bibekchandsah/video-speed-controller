@@ -28,7 +28,8 @@ class BackgroundController {
       // Set default settings
       await chrome.storage.sync.set({
         persistenceEnabled: true,
-        globalEnabled: true
+        globalEnabled: true,
+        maxSpeed: 4.0
       });
       
       console.log('Video Speed Controller installed with default settings');

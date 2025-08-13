@@ -9,6 +9,7 @@ class VideoSpeedController {
     this.domain = window.location.hostname;
     this.speedDisplay = null;
     this.displayTimeout = null;
+    this.maxSpeed = 4.0; // Default max speed, will be loaded from settings
     
     this.init();
   }
@@ -31,10 +32,12 @@ class VideoSpeedController {
       const result = await chrome.storage.sync.get([
         'persistenceEnabled',
         `speed_${this.domain}`,
-        'globalEnabled'
+        'globalEnabled',
+        'maxSpeed'
       ]);
       
       this.isEnabled = result.globalEnabled !== false;
+      this.maxSpeed = result.maxSpeed || 4.0;
       const savedSpeed = result[`speed_${this.domain}`];
       
       if (result.persistenceEnabled !== false && savedSpeed) {
@@ -132,7 +135,7 @@ class VideoSpeedController {
   }
 
   increaseSpeed() {
-    const newSpeed = Math.min(4.0, this.currentSpeed + 0.25);
+    const newSpeed = Math.min(this.maxSpeed, this.currentSpeed + 0.25);
     this.setSpeed(newSpeed);
   }
 
@@ -171,22 +174,30 @@ class VideoSpeedController {
     this.speedDisplay.id = 'video-speed-display';
     this.speedDisplay.style.cssText = `
       position: fixed;
-      top: 20px;
-      right: 20px;
-      background: rgba(0, 0, 0, 0.8);
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(255, 255, 255, 0.15);
       color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
+      padding: 12px 24px;
+      border-radius: 25px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 700;
       z-index: 10000;
       opacity: 0;
-      transform: translateY(-10px);
-      transition: all 0.3s ease;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       pointer-events: none;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 
+                  0 2px 8px rgba(0, 0, 0, 0.2),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      min-width: 80px;
+      text-align: center;
+      letter-spacing: 0.5px;
     `;
     document.body.appendChild(this.speedDisplay);
   }
@@ -196,13 +207,13 @@ class VideoSpeedController {
     
     this.speedDisplay.textContent = `${this.currentSpeed}x`;
     this.speedDisplay.style.opacity = '1';
-    this.speedDisplay.style.transform = 'translateY(0)';
+    this.speedDisplay.style.transform = 'translateX(-50%) translateY(0)';
     
     clearTimeout(this.displayTimeout);
     this.displayTimeout = setTimeout(() => {
       this.speedDisplay.style.opacity = '0';
-      this.speedDisplay.style.transform = 'translateY(-10px)';
-    }, 2000);
+      this.speedDisplay.style.transform = 'translateX(-50%) translateY(-20px)';
+    }, 2500);
   }
 
   handleMessage(message, sendResponse) {
@@ -231,6 +242,11 @@ class VideoSpeedController {
           });
         }
         sendResponse({ success: true, isEnabled: this.isEnabled });
+        break;
+        
+      case 'updateMaxSpeed':
+        this.maxSpeed = message.maxSpeed;
+        sendResponse({ success: true, maxSpeed: this.maxSpeed });
         break;
         
       default:

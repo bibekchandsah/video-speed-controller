@@ -194,10 +194,14 @@ input:checked + .toggle-slider:before {
 }
 
 /* Speed Presets */
-.speed-presets {
+.speed-presets, .max-speed-presets {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
+}
+
+.max-speed-presets {
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .preset-btn {
