@@ -15,6 +15,8 @@ class VideoSpeedController {
       decrease: { key: 'Comma', shift: true, ctrl: false, alt: false },
       reset: { key: 'KeyR', shift: true, ctrl: false, alt: false }
     };
+    this.educationalPlatform = this.detectEducationalPlatform();
+    this.platformConfig = this.getPlatformConfig();
     
     this.init();
   }
@@ -26,6 +28,7 @@ class VideoSpeedController {
     this.createSpeedDisplay();
     this.findExistingVideos();
     this.setupDisplayProtection();
+    this.setupEducationalFeatures();
     
     // Listen for messages from popup
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -270,6 +273,234 @@ class VideoSpeedController {
     }, 2500);
   }
 
+  detectEducationalPlatform() {
+    const hostname = window.location.hostname.toLowerCase();
+    const url = window.location.href.toLowerCase();
+    
+    if (hostname.includes('coursera.org')) return 'coursera';
+    if (hostname.includes('udemy.com')) return 'udemy';
+    if (hostname.includes('khanacademy.org')) return 'khanacademy';
+    if (hostname.includes('apnacollege.in') || hostname.includes('apnacollege.com')) return 'apnacollege';
+    if (hostname.includes('youtube.com') && (url.includes('playlist') || url.includes('educational'))) return 'youtube-edu';
+    
+    return null;
+  }
+
+  getPlatformConfig() {
+    const configs = {
+      coursera: {
+        name: 'Coursera',
+        recommendedSpeeds: [1.25, 1.5, 1.75, 2.0],
+        defaultSpeed: 1.25,
+        features: ['autoSkipIntro', 'chapterNavigation', 'noteTimestamps'],
+        videoSelectors: ['video', '.video-player video', '.rc-VideoPlayer video'],
+        skipIntroSelector: '.skip-intro-button, .rc-SkipButton',
+        maxRecommendedSpeed: 2.5
+      },
+      udemy: {
+        name: 'Udemy',
+        recommendedSpeeds: [1.25, 1.5, 1.75, 2.0, 2.25],
+        defaultSpeed: 1.5,
+        features: ['autoSkipIntro', 'lectureProgress', 'noteTimestamps'],
+        videoSelectors: ['video', '.video-player video', '.vjs-tech'],
+        skipIntroSelector: '.skip-button, .udemy-btn',
+        maxRecommendedSpeed: 3.0
+      },
+      khanacademy: {
+        name: 'Khan Academy',
+        recommendedSpeeds: [1.0, 1.25, 1.5, 1.75],
+        defaultSpeed: 1.25,
+        features: ['practiceMode', 'conceptReview', 'progressTracking'],
+        videoSelectors: ['video', '.ka-video-player video'],
+        skipIntroSelector: '.skip-intro',
+        maxRecommendedSpeed: 2.0
+      },
+      apnacollege: {
+        name: 'Apna College',
+        recommendedSpeeds: [1.25, 1.5, 1.75, 2.0, 2.25, 2.5],
+        defaultSpeed: 1.5,
+        features: ['codingMode', 'lectureNotes', 'practiceProblems'],
+        videoSelectors: ['video', '.video-player video', '.plyr__video'],
+        skipIntroSelector: '.skip-intro, .skip-button',
+        maxRecommendedSpeed: 3.0
+      },
+      'youtube-edu': {
+        name: 'YouTube Education',
+        recommendedSpeeds: [1.25, 1.5, 1.75, 2.0],
+        defaultSpeed: 1.25,
+        features: ['playlistMode', 'chapterNavigation'],
+        videoSelectors: ['video', '.html5-video-player video'],
+        skipIntroSelector: '.ytp-skip-ad-button',
+        maxRecommendedSpeed: 2.5
+      }
+    };
+
+    return this.educationalPlatform ? configs[this.educationalPlatform] : null;
+  }
+
+  setupEducationalFeatures() {
+    if (!this.platformConfig) return;
+
+    console.log(`Educational platform detected: ${this.platformConfig.name}`);
+    
+    // Apply platform-specific default speed
+    if (this.platformConfig.defaultSpeed && this.currentSpeed === 1.0) {
+      setTimeout(() => {
+        this.setSpeed(this.platformConfig.defaultSpeed);
+        this.showEducationalMessage(`Optimized for ${this.platformConfig.name} learning`);
+      }, 2000);
+    }
+
+    // Setup platform-specific features
+    this.setupAutoSkipIntro();
+    this.setupLectureNavigation();
+    this.setupNoteTimestamps();
+  }
+
+  setupAutoSkipIntro() {
+    if (!this.platformConfig.features.includes('autoSkipIntro')) return;
+
+    const observer = new MutationObserver(() => {
+      const skipButton = document.querySelector(this.platformConfig.skipIntroSelector);
+      if (skipButton && skipButton.offsetParent !== null) {
+        setTimeout(() => {
+          skipButton.click();
+          console.log('Auto-skipped intro/ad');
+        }, 1000);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  setupLectureNavigation() {
+    if (!this.platformConfig.features.includes('chapterNavigation')) return;
+
+    // Add keyboard shortcuts for lecture navigation
+    document.addEventListener('keydown', (event) => {
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+
+      // Ctrl + Left Arrow - Previous lecture/chapter
+      if (event.ctrlKey && event.code === 'ArrowLeft') {
+        event.preventDefault();
+        this.navigateLecture('previous');
+      }
+
+      // Ctrl + Right Arrow - Next lecture/chapter
+      if (event.ctrlKey && event.code === 'ArrowRight') {
+        event.preventDefault();
+        this.navigateLecture('next');
+      }
+    });
+  }
+
+  navigateLecture(direction) {
+    const selectors = {
+      coursera: {
+        next: '.rc-NavigationControls button[data-track-component="next_item_button"]',
+        previous: '.rc-NavigationControls button[data-track-component="previous_item_button"]'
+      },
+      udemy: {
+        next: '.next-btn, .curriculum-item-link--next',
+        previous: '.prev-btn, .curriculum-item-link--previous'
+      },
+      khanacademy: {
+        next: '.next-button, [data-test-id="next-button"]',
+        previous: '.previous-button, [data-test-id="previous-button"]'
+      },
+      apnacollege: {
+        next: '.next-lecture, .next-video',
+        previous: '.prev-lecture, .prev-video'
+      }
+    };
+
+    const platformSelectors = selectors[this.educationalPlatform];
+    if (platformSelectors) {
+      const button = document.querySelector(platformSelectors[direction]);
+      if (button) {
+        button.click();
+        this.showEducationalMessage(`${direction === 'next' ? 'Next' : 'Previous'} lecture`);
+      }
+    }
+  }
+
+  setupNoteTimestamps() {
+    if (!this.platformConfig.features.includes('noteTimestamps')) return;
+
+    // Add keyboard shortcut for timestamped notes
+    document.addEventListener('keydown', (event) => {
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+
+      // Ctrl + N - Add timestamped note
+      if (event.ctrlKey && event.code === 'KeyN') {
+        event.preventDefault();
+        this.addTimestampedNote();
+      }
+    });
+  }
+
+  addTimestampedNote() {
+    const video = Array.from(this.videos)[0];
+    if (!video) return;
+
+    const currentTime = Math.floor(video.currentTime);
+    const minutes = Math.floor(currentTime / 60);
+    const seconds = currentTime % 60;
+    const timestamp = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    const noteText = `[${timestamp}] Note: `;
+    
+    // Try to copy to clipboard
+    navigator.clipboard.writeText(noteText).then(() => {
+      this.showEducationalMessage(`Timestamp ${timestamp} copied to clipboard`);
+    }).catch(() => {
+      this.showEducationalMessage(`Timestamp: ${timestamp}`);
+    });
+  }
+
+  showEducationalMessage(message) {
+    // Create educational-specific message display
+    const eduMessage = document.createElement('div');
+    eduMessage.style.cssText = `
+      position: fixed !important;
+      top: 70px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      color: white !important;
+      padding: 8px 16px !important;
+      border-radius: 20px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      z-index: 2147483646 !important;
+      opacity: 0 !important;
+      transition: all 0.3s ease !important;
+      pointer-events: none !important;
+      backdrop-filter: blur(10px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+    `;
+    
+    eduMessage.textContent = message;
+    document.body.appendChild(eduMessage);
+    
+    // Animate in
+    setTimeout(() => {
+      eduMessage.style.opacity = '1';
+    }, 100);
+    
+    // Remove after delay
+    setTimeout(() => {
+      eduMessage.style.opacity = '0';
+      setTimeout(() => {
+        if (eduMessage.parentNode) {
+          eduMessage.parentNode.removeChild(eduMessage);
+        }
+      }, 300);
+    }, 3000);
+  }
+
   handleMessage(message, sendResponse) {
     switch (message.action) {
       case 'setSpeed':
@@ -282,7 +513,9 @@ class VideoSpeedController {
           currentSpeed: this.currentSpeed,
           domain: this.domain,
           videoCount: this.videos.size,
-          isEnabled: this.isEnabled
+          isEnabled: this.isEnabled,
+          educationalPlatform: this.educationalPlatform,
+          platformConfig: this.platformConfig
         });
         break;
         
@@ -306,6 +539,15 @@ class VideoSpeedController {
       case 'updateShortcuts':
         this.shortcuts = message.shortcuts;
         sendResponse({ success: true, shortcuts: this.shortcuts });
+        break;
+        
+      case 'applyEducationalSpeed':
+        if (this.platformConfig && this.platformConfig.recommendedSpeeds.includes(message.speed)) {
+          this.setSpeed(message.speed);
+          sendResponse({ success: true, currentSpeed: this.currentSpeed });
+        } else {
+          sendResponse({ success: false, error: 'Speed not recommended for this platform' });
+        }
         break;
         
       default:

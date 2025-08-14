@@ -40,10 +40,18 @@ class PopupController {
       recordResetBtn: document.getElementById('recordResetBtn'),
       saveShortcutsBtn: document.getElementById('saveShortcutsBtn'),
       resetShortcutsBtn: document.getElementById('resetShortcutsBtn'),
-      shortcutDisplay: document.getElementById('shortcutDisplay')
+      shortcutDisplay: document.getElementById('shortcutDisplay'),
+      // Educational platform elements
+      educationalSection: document.getElementById('educationalSection'),
+      platformName: document.getElementById('platformName'),
+      educationalPresets: document.getElementById('educationalPresets'),
+      platformStatus: document.getElementById('platformStatus'),
+      platformStatusItem: document.getElementById('platformStatusItem')
     };
     
     this.recordingShortcut = null;
+    this.currentPlatform = null;
+    this.platformConfig = null;
     this.shortcuts = {
       increase: { key: 'Period', shift: true, ctrl: false, alt: false },
       decrease: { key: 'Comma', shift: true, ctrl: false, alt: false },
@@ -206,11 +214,19 @@ class PopupController {
         this.elements.currentDomain.textContent = response.domain || 'Unknown';
         this.updatePresetButtons(response.currentSpeed);
         this.elements.speedInput.value = response.currentSpeed;
+        
+        // Handle educational platform features
+        if (response.educationalPlatform && response.platformConfig) {
+          this.setupEducationalPlatform(response.educationalPlatform, response.platformConfig);
+        } else {
+          this.hideEducationalSection();
+        }
       }
     } catch (error) {
       console.error('Error updating status:', error);
       this.elements.currentDomain.textContent = this.currentTab?.url ? 
         new URL(this.currentTab.url).hostname : 'Unknown';
+      this.hideEducationalSection();
     }
   }
 
@@ -579,6 +595,96 @@ class PopupController {
       this.showMessage('Chrome storage test failed: ' + error.message, 'error');
       return false;
     }
+  }
+
+  setupEducationalPlatform(platform, config) {
+    this.currentPlatform = platform;
+    this.platformConfig = config;
+    
+    // Show educational section
+    this.elements.educationalSection.style.display = 'block';
+    this.elements.platformStatusItem.style.display = 'flex';
+    
+    // Update platform info
+    this.elements.platformName.textContent = config.name;
+    this.elements.platformStatus.textContent = config.name;
+    
+    // Add platform-specific styling
+    this.elements.educationalSection.className = `setting-section platform-${platform}`;
+    
+    // Create educational speed presets
+    this.createEducationalPresets(config);
+    
+    console.log(`Educational platform setup: ${config.name}`);
+  }
+
+  createEducationalPresets(config) {
+    this.elements.educationalPresets.innerHTML = '';
+    
+    config.recommendedSpeeds.forEach(speed => {
+      const button = document.createElement('button');
+      button.className = 'educational-preset-btn';
+      button.textContent = `${speed}x`;
+      button.dataset.speed = speed;
+      
+      // Mark recommended speeds
+      if (speed === config.defaultSpeed) {
+        button.classList.add('recommended');
+        button.title = 'Recommended for this platform';
+      }
+      
+      button.addEventListener('click', async () => {
+        await this.applyEducationalSpeed(speed);
+        this.updateEducationalPresets(speed);
+      });
+      
+      this.elements.educationalPresets.appendChild(button);
+    });
+  }
+
+  async applyEducationalSpeed(speed) {
+    if (!this.currentTab) {
+      this.showMessage('No active tab found', 'error');
+      return;
+    }
+
+    try {
+      const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+        action: 'applyEducationalSpeed',
+        speed: speed
+      });
+
+      if (response && response.success) {
+        this.elements.currentSpeed.textContent = `${response.currentSpeed}x`;
+        this.elements.speedInput.value = response.currentSpeed;
+        this.showMessage(`${this.platformConfig.name} speed: ${response.currentSpeed}x`, 'success');
+        this.updatePresetButtons(response.currentSpeed);
+      } else {
+        throw new Error('Failed to apply educational speed');
+      }
+    } catch (error) {
+      console.error('Error applying educational speed:', error);
+      this.showMessage('Error applying speed', 'error');
+    }
+  }
+
+  updateEducationalPresets(currentSpeed) {
+    const presetButtons = this.elements.educationalPresets.querySelectorAll('.educational-preset-btn');
+    presetButtons.forEach(btn => {
+      const btnSpeed = parseFloat(btn.dataset.speed);
+      if (Math.abs(btnSpeed - currentSpeed) < 0.01) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  hideEducationalSection() {
+    this.elements.educationalSection.style.display = 'none';
+    this.elements.platformStatusItem.style.display = 'none';
+    this.currentPlatform = null;
+    this.platformConfig = null;
   }
 
   showMessage(text, type = 'success') {

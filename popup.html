@@ -110,6 +110,31 @@
         </div>
       </section>
 
+      <!-- Educational Platform Section -->
+      <section class="setting-section" id="educationalSection" style="display: none;">
+        <div class="setting-header">
+          <h2 id="platformName">Educational Platform</h2>
+          <p class="setting-description">Optimized speeds and features for learning</p>
+        </div>
+        <div class="educational-presets" id="educationalPresets">
+          <!-- Educational speed presets will be populated here -->
+        </div>
+        <div class="educational-features">
+          <div class="feature-item">
+            <span class="feature-label">Auto-skip intro:</span>
+            <span class="feature-status" id="autoSkipStatus">Enabled</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-label">Lecture navigation:</span>
+            <span class="feature-status">Ctrl+← / Ctrl+→</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-label">Timestamped notes:</span>
+            <span class="feature-status">Ctrl+N</span>
+          </div>
+        </div>
+      </section>
+
       <!-- Current Status Section -->
       <section class="setting-section">
         <div class="setting-header">
@@ -127,6 +152,10 @@
           <div class="status-item">
             <span class="status-label">Max Speed:</span>
             <span class="status-value" id="maxSpeedDisplay">4.0x</span>
+          </div>
+          <div class="status-item" id="platformStatusItem" style="display: none;">
+            <span class="status-label">Platform:</span>
+            <span class="status-value" id="platformStatus">-</span>
           </div>
         </div>
       </section>
