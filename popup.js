@@ -5,6 +5,7 @@ class PopupController {
   constructor() {
     this.currentTab = null;
     this.elements = {};
+    this.isInjecting = false;
     this.init();
   }
 
@@ -13,6 +14,7 @@ class PopupController {
     this.setupEventListeners();
     await this.getCurrentTab();
     await this.loadSettings();
+    await this.checkContentScriptHealth();
     await this.updateStatus();
   }
 
@@ -46,7 +48,16 @@ class PopupController {
       platformName: document.getElementById('platformName'),
       educationalPresets: document.getElementById('educationalPresets'),
       platformStatus: document.getElementById('platformStatus'),
-      platformStatusItem: document.getElementById('platformStatusItem')
+      platformStatusItem: document.getElementById('platformStatusItem'),
+      // Debug elements
+      debugSection: document.getElementById('debugSection'),
+      showDebugLink: document.getElementById('showDebugLink'),
+      debugVideoBtn: document.getElementById('debugVideoBtn'),
+      forceVideoScanBtn: document.getElementById('forceVideoScanBtn'),
+      toggleDebugBtn: document.getElementById('toggleDebugBtn'),
+      debugInfo: document.getElementById('debugInfo'),
+      debugVideoCount: document.getElementById('debugVideoCount'),
+      debugPlatform: document.getElementById('debugPlatform')
     };
     
     this.recordingShortcut = null;
@@ -137,14 +148,68 @@ class PopupController {
         this.recordKeyPress(e);
       }
     });
+
+    // Debug functionality
+    this.elements.showDebugLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleDebugSection();
+    });
+
+    // Author link functionality
+    const authorInfo = document.querySelector('.author-info small');
+    if (authorInfo) {
+      authorInfo.addEventListener('click', () => {
+        chrome.tabs.create({ 
+          url: 'https://www.bibekchandsah.com.np/' 
+        });
+      });
+    }
+
+    // Contribute link functionality
+    const contributeInfo = document.querySelector('.contribute-info small');
+    if (contributeInfo) {
+      contributeInfo.addEventListener('click', () => {
+        chrome.tabs.create({ 
+          url: 'https://github.com/bibekchandsah/video-speed-controller' 
+        });
+      });
+    }
+
+    this.elements.debugVideoBtn.addEventListener('click', async () => {
+      await this.debugVideoDetection();
+    });
+
+    this.elements.forceVideoScanBtn.addEventListener('click', async () => {
+      await this.forceVideoScan();
+    });
+
+    this.elements.toggleDebugBtn.addEventListener('click', () => {
+      this.toggleDebugInfo();
+    });
   }
 
   async getCurrentTab() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       this.currentTab = tab;
+      console.log('Current tab:', tab.url);
     } catch (error) {
       console.error('Error getting current tab:', error);
+    }
+  }
+
+  async checkContentScriptHealth() {
+    if (!this.currentTab || !this.currentTab.url.startsWith('http')) {
+      console.log('Skipping content script check for non-http tab');
+      return;
+    }
+
+    try {
+      await this.ensureContentScriptLoaded();
+      console.log('Content script is healthy');
+    } catch (error) {
+      console.error('Content script health check failed:', error);
+      this.showMessage('Extension may need page refresh to work properly', 'error');
     }
   }
 
@@ -201,10 +266,13 @@ class PopupController {
     });
   }
 
-  async updateStatus() {
+  async updateStatus(isRetry = false) {
     if (!this.currentTab) return;
 
     try {
+      // First, try to inject the content script if it's not already running
+      await this.ensureContentScriptLoaded();
+
       const response = await chrome.tabs.sendMessage(this.currentTab.id, {
         action: 'getStatus'
       });
@@ -224,9 +292,43 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      this.elements.currentDomain.textContent = this.currentTab?.url ? 
-        new URL(this.currentTab.url).hostname : 'Unknown';
-      this.hideEducationalSection();
+      
+      // Only retry once to prevent infinite loops
+      if (!isRetry) {
+        try {
+          console.log('Attempting to inject content script and retry...');
+          await this.injectContentScript();
+          
+          // Wait a bit for the script to initialize
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          await this.updateStatus(true); // Retry with flag
+        } catch (retryError) {
+          console.error('Retry failed:', retryError);
+          this.handleUpdateStatusFailure();
+        }
+      } else {
+        console.error('Update status failed on retry, giving up');
+        this.handleUpdateStatusFailure();
+      }
+    }
+  }
+
+  handleUpdateStatusFailure() {
+    this.elements.currentDomain.textContent = this.currentTab?.url ? 
+      new URL(this.currentTab.url).hostname : 'Unknown';
+    this.hideEducationalSection();
+    
+    // Show a helpful message based on the URL
+    if (this.currentTab?.url?.startsWith('chrome://') || 
+        this.currentTab?.url?.startsWith('chrome-extension://') ||
+        this.currentTab?.url?.startsWith('edge://') ||
+        this.currentTab?.url?.startsWith('about:')) {
+      this.showMessage('Extension cannot run on browser internal pages', 'error');
+    } else if (!this.currentTab?.url?.startsWith('http')) {
+      this.showMessage('Extension only works on web pages (http/https)', 'error');
+    } else {
+      this.showMessage('Please refresh the page and try again', 'error');
     }
   }
 
@@ -285,13 +387,16 @@ class PopupController {
     }
   }
 
-  async applySpeed(speed) {
+  async applySpeed(speed, isRetry = false) {
     if (!this.currentTab) {
       this.showMessage('No active tab found', 'error');
       return;
     }
 
     try {
+      // Ensure content script is loaded
+      await this.ensureContentScriptLoaded();
+
       const response = await chrome.tabs.sendMessage(this.currentTab.id, {
         action: 'setSpeed',
         speed: speed
@@ -306,7 +411,28 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error applying speed:', error);
-      this.showMessage('Error: No videos found on this page', 'error');
+      
+      // Only retry once to prevent infinite loops
+      if (!isRetry) {
+        try {
+          console.log('Attempting fallback speed application...');
+          
+          // Try YouTube fallback if it's YouTube
+          if (this.currentTab.url.includes('youtube.com')) {
+            await this.applyYouTubeFallback(speed);
+            return;
+          }
+          
+          // For other sites, try generic fallback
+          await this.applyGenericFallback(speed);
+          
+        } catch (retryError) {
+          console.error('All fallback methods failed:', retryError);
+          this.showMessage('Error: Could not control video speed. Try refreshing the page.', 'error');
+        }
+      } else {
+        this.showMessage('Error: Content script failed to load. Try refreshing the page.', 'error');
+      }
     }
   }
 
@@ -649,6 +775,8 @@ class PopupController {
     }
 
     try {
+      await this.ensureContentScriptLoaded();
+      
       const response = await chrome.tabs.sendMessage(this.currentTab.id, {
         action: 'applyEducationalSpeed',
         speed: speed
@@ -664,7 +792,86 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error applying educational speed:', error);
-      this.showMessage('Error applying speed', 'error');
+      
+      // Try fallback method for common platforms like YouTube
+      if (this.currentTab.url.includes('youtube.com')) {
+        await this.applyYouTubeFallback(speed);
+      } else {
+        this.showMessage('Error applying speed - try refreshing the page', 'error');
+      }
+    }
+  }
+
+  async applyYouTubeFallback(speed) {
+    try {
+      // Inject a simple script to directly control YouTube video
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: this.currentTab.id },
+        func: (targetSpeed) => {
+          const video = document.querySelector('video');
+          if (video) {
+            video.playbackRate = targetSpeed;
+            console.log(`YouTube fallback: Speed set to ${targetSpeed}x`);
+            return { success: true, speed: targetSpeed };
+          }
+          return { success: false, error: 'No video found' };
+        },
+        args: [speed]
+      });
+      
+      const result = results[0]?.result;
+      if (result?.success) {
+        this.elements.currentSpeed.textContent = `${speed}x`;
+        this.elements.speedInput.value = speed;
+        this.showMessage(`Speed: ${speed}x (direct method)`, 'success');
+      } else {
+        throw new Error(result?.error || 'Fallback failed');
+      }
+    } catch (fallbackError) {
+      console.error('YouTube fallback failed:', fallbackError);
+      throw fallbackError;
+    }
+  }
+
+  async applyGenericFallback(speed) {
+    try {
+      // Inject a simple script to find and control any video
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: this.currentTab.id },
+        func: (targetSpeed) => {
+          const videos = document.querySelectorAll('video');
+          let successCount = 0;
+          
+          videos.forEach(video => {
+            try {
+              video.playbackRate = targetSpeed;
+              successCount++;
+            } catch (e) {
+              console.log('Failed to set speed on video:', e);
+            }
+          });
+          
+          return { 
+            success: successCount > 0, 
+            videoCount: videos.length,
+            successCount: successCount,
+            speed: targetSpeed 
+          };
+        },
+        args: [speed]
+      });
+      
+      const result = results[0]?.result;
+      if (result?.success) {
+        this.elements.currentSpeed.textContent = `${speed}x`;
+        this.elements.speedInput.value = speed;
+        this.showMessage(`Speed: ${speed}x (${result.successCount}/${result.videoCount} videos)`, 'success');
+      } else {
+        throw new Error(`No videos found (${result?.videoCount || 0} total)`);
+      }
+    } catch (fallbackError) {
+      console.error('Generic fallback failed:', fallbackError);
+      throw fallbackError;
     }
   }
 
@@ -685,6 +892,139 @@ class PopupController {
     this.elements.platformStatusItem.style.display = 'none';
     this.currentPlatform = null;
     this.platformConfig = null;
+  }
+
+  toggleDebugSection() {
+    const isVisible = this.elements.debugSection.style.display !== 'none';
+    this.elements.debugSection.style.display = isVisible ? 'none' : 'block';
+    this.elements.showDebugLink.textContent = isVisible ? 'Show Debug Tools' : 'Hide Debug Tools';
+  }
+
+  async debugVideoDetection() {
+    if (!this.currentTab) {
+      this.showMessage('No active tab found', 'error');
+      return;
+    }
+
+    try {
+      await this.ensureContentScriptLoaded();
+      
+      const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+        action: 'debugVideoDetection'
+      });
+
+      if (response && response.success) {
+        this.showMessage('Debug info logged to console (F12)', 'success');
+      }
+    } catch (error) {
+      console.error('Debug failed:', error);
+      this.showMessage('Debug failed - ensure content script is loaded', 'error');
+    }
+  }
+
+  async forceVideoScan() {
+    if (!this.currentTab) {
+      this.showMessage('No active tab found', 'error');
+      return;
+    }
+
+    try {
+      await this.ensureContentScriptLoaded();
+      
+      const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+        action: 'forceVideoScan'
+      });
+
+      if (response && response.success) {
+        this.elements.debugVideoCount.textContent = response.videoCount;
+        this.showMessage(`Found ${response.videoCount} videos, speed: ${response.currentSpeed}x`, 'success');
+        await this.updateStatus(); // Refresh status
+      }
+    } catch (error) {
+      console.error('Force scan failed:', error);
+      this.showMessage('Force scan failed - try refreshing the page', 'error');
+    }
+  }
+
+  toggleDebugInfo() {
+    const isVisible = this.elements.debugInfo.style.display !== 'none';
+    this.elements.debugInfo.style.display = isVisible ? 'none' : 'block';
+    this.elements.toggleDebugBtn.textContent = isVisible ? 'Show Debug Info' : 'Hide Debug Info';
+    
+    if (!isVisible) {
+      // Update debug info when showing
+      this.updateDebugInfo();
+    }
+  }
+
+  updateDebugInfo() {
+    this.elements.debugPlatform.textContent = this.currentPlatform || 'None';
+    // Video count will be updated by other functions
+  }
+
+  async ensureContentScriptLoaded() {
+    if (!this.currentTab || !this.currentTab.url.startsWith('http')) {
+      throw new Error('Invalid tab or URL');
+    }
+
+    // Prevent multiple simultaneous injections
+    if (this.isInjecting) {
+      console.log('Content script injection already in progress, waiting...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return true;
+    }
+
+    try {
+      // Try to ping the content script with a shorter timeout
+      const response = await Promise.race([
+        chrome.tabs.sendMessage(this.currentTab.id, { action: 'ping' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), 1000))
+      ]);
+      
+      if (response && response.pong) {
+        console.log('Content script is already loaded and responding');
+        return true; // Content script is already loaded
+      }
+    } catch (error) {
+      // Content script not loaded or not responding, need to inject it
+      console.log('Content script not responding, injecting...');
+    }
+
+    // Inject the content script
+    await this.injectContentScript();
+    
+    // Wait a bit for the script to initialize
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    return true;
+  }
+
+  async injectContentScript() {
+    if (!this.currentTab || !this.currentTab.url.startsWith('http')) {
+      throw new Error('Cannot inject into this tab');
+    }
+
+    if (this.isInjecting) {
+      console.log('Content script injection already in progress');
+      return;
+    }
+
+    this.isInjecting = true;
+
+    try {
+      // Inject the content script
+      await chrome.scripting.executeScript({
+        target: { tabId: this.currentTab.id },
+        files: ['content.js']
+      });
+      
+      console.log('Content script injected successfully');
+    } catch (error) {
+      console.error('Failed to inject content script:', error);
+      throw error;
+    } finally {
+      this.isInjecting = false;
+    }
   }
 
   showMessage(text, type = 'success') {

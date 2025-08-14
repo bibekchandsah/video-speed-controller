@@ -5,7 +5,8 @@
   "description": "Enhanced video playback speed control with keyboard shortcuts, visual feedback, and persistent settings",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "content_scripts": [
     {
@@ -27,6 +28,6 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "author": "Video Speed Controller Extension",
-  "homepage_url": "https://github.com/video-speed-controller/extension"
+  "author": "Bibek (Bibek Chand Sah)",
+  "homepage_url": "https://github.com/bibekchandsah/video-speed-controller"
 }

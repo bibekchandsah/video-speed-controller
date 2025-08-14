@@ -30,6 +30,11 @@ class VideoSpeedController {
     this.setupDisplayProtection();
     this.setupEducationalFeatures();
     
+    // Update badge on initialization
+    setTimeout(() => {
+      this.updateBadge();
+    }, 1000);
+    
     // Listen for messages from popup
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message, sendResponse);
@@ -59,6 +64,7 @@ class VideoSpeedController {
       if (result.persistenceEnabled !== false && savedSpeed) {
         this.currentSpeed = savedSpeed;
         this.applySpeedToAllVideos();
+        this.updateBadge();
       }
     } catch (error) {
       console.log('VideoSpeedController: Error loading settings:', error);
@@ -117,6 +123,7 @@ class VideoSpeedController {
       if (Math.abs(video.playbackRate - this.currentSpeed) > 0.01) {
         this.currentSpeed = video.playbackRate;
         this.saveSpeed();
+        this.updateBadge();
       }
     });
   }
@@ -166,6 +173,7 @@ class VideoSpeedController {
     this.applySpeedToAllVideos();
     this.showSpeedDisplay();
     this.saveSpeed();
+    this.updateBadge();
   }
 
   applySpeedToAllVideos() {
@@ -183,6 +191,21 @@ class VideoSpeedController {
       });
     } catch (error) {
       console.log('VideoSpeedController: Error saving speed:', error);
+    }
+  }
+
+  updateBadge() {
+    try {
+      // Send message to background script to update badge
+      chrome.runtime.sendMessage({
+        action: 'updateBadge',
+        speed: this.currentSpeed
+      }).catch(error => {
+        // Ignore errors if background script is not ready
+        console.log('Badge update failed (background script not ready):', error);
+      });
+    } catch (error) {
+      console.log('VideoSpeedController: Error updating badge:', error);
     }
   }
 

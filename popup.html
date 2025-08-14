@@ -110,6 +110,29 @@
         </div>
       </section>
 
+      <!-- Debug Section (Hidden by default) -->
+      <section class="setting-section debug-section" id="debugSection" style="display: none;">
+        <div class="setting-header">
+          <h2>Debug Tools</h2>
+          <p class="setting-description">Troubleshooting tools for video detection issues</p>
+        </div>
+        <div class="debug-actions">
+          <button id="debugVideoBtn" class="debug-btn">Debug Video Detection</button>
+          <button id="forceVideoScanBtn" class="debug-btn">Force Video Scan</button>
+          <button id="toggleDebugBtn" class="debug-btn">Show Debug Info</button>
+        </div>
+        <div class="debug-info" id="debugInfo" style="display: none;">
+          <div class="debug-item">
+            <span class="debug-label">Videos Found:</span>
+            <span class="debug-value" id="debugVideoCount">0</span>
+          </div>
+          <div class="debug-item">
+            <span class="debug-label">Platform Detected:</span>
+            <span class="debug-value" id="debugPlatform">None</span>
+          </div>
+        </div>
+      </section>
+
       <!-- Educational Platform Section -->
       <section class="setting-section" id="educationalSection" style="display: none;">
         <div class="setting-header">
@@ -168,8 +191,26 @@
 
     <!-- Footer -->
     <footer class="popup-footer">
-      <div class="keyboard-shortcuts">
-        <small id="shortcutDisplay">Shortcuts: Shift+&gt; (faster) | Shift+&lt; (slower) | Shift+R (reset)</small>
+      <div class="shortcuts-info">
+        <div class="shortcuts-icon">📋</div>
+        <div class="shortcuts-text">
+          <small id="shortcutDisplay">Shortcuts: Shift+&gt; (faster) | Shift+&lt; (slower) | Shift+R (reset)</small>
+        </div>
+      </div>
+      
+      <div class="footer-row">
+        <div class="author-info">
+          <span class="author-icon">👨‍💻</span>
+          <small>Author: Bibek Chand Sah</small>
+        </div>
+        <div class="contribute-info">
+          <span class="contribute-icon">🤝</span>
+          <small>Contribute on GitHub</small>
+        </div>
+      </div>
+      
+      <div class="debug-toggle">
+        <small><a href="#" id="showDebugLink">Hide Debug Tools</a></small>
       </div>
     </footer>
   </div>
