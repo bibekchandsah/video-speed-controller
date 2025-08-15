@@ -31,8 +31,12 @@ class PopupController {
       maxSpeedDisplay: document.getElementById('maxSpeedDisplay'),
       messageContainer: document.getElementById('messageContainer'),
       messageText: document.getElementById('messageText'),
+      speedPresets: document.getElementById('speedPresets'),
       presetBtns: document.querySelectorAll('.preset-btn:not(.max-preset)'),
       maxPresetBtns: document.querySelectorAll('.max-preset'),
+      // Enhanced features elements
+      audioControlToggle: document.getElementById('audioControlToggle'),
+      visualControllerToggle: document.getElementById('visualControllerToggle'),
       // Shortcut elements
       increaseShortcut: document.getElementById('increaseShortcut'),
       decreaseShortcut: document.getElementById('decreaseShortcut'),
@@ -57,7 +61,8 @@ class PopupController {
       toggleDebugBtn: document.getElementById('toggleDebugBtn'),
       debugInfo: document.getElementById('debugInfo'),
       debugVideoCount: document.getElementById('debugVideoCount'),
-      debugPlatform: document.getElementById('debugPlatform')
+      debugPlatform: document.getElementById('debugPlatform'),
+      debugControllers: document.getElementById('debugControllers')
     };
     
     this.recordingShortcut = null;
@@ -98,14 +103,7 @@ class PopupController {
       this.saveMaxSpeed();
     });
 
-    // Preset buttons
-    this.elements.presetBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const speed = parseFloat(btn.dataset.speed);
-        this.applySpeed(speed);
-        this.updatePresetButtons(speed);
-      });
-    });
+    // Preset buttons are now generated dynamically in generateSpeedPresets()
 
     // Max speed preset buttons
     this.elements.maxPresetBtns.forEach(btn => {
@@ -186,6 +184,15 @@ class PopupController {
     this.elements.toggleDebugBtn.addEventListener('click', () => {
       this.toggleDebugInfo();
     });
+
+    // Enhanced features event listeners
+    this.elements.audioControlToggle.addEventListener('change', (e) => {
+      this.handleEnhancedFeatureToggle('audioBoolean', e.target.checked);
+    });
+
+    this.elements.visualControllerToggle.addEventListener('change', (e) => {
+      this.handleEnhancedFeatureToggle('startHidden', !e.target.checked);
+    });
   }
 
   async getCurrentTab() {
@@ -221,7 +228,9 @@ class PopupController {
         'persistenceEnabled',
         'globalEnabled',
         'maxSpeed',
-        'shortcuts'
+        'shortcuts',
+        'audioBoolean',
+        'startHidden'
       ]);
       
       console.log('Loaded settings:', result);
@@ -235,6 +244,13 @@ class PopupController {
       this.elements.maxSpeedDisplay.textContent = `${maxSpeed}x`;
       this.elements.speedInput.max = maxSpeed;
       this.updateMaxPresetButtons(maxSpeed);
+      
+      // Generate speed presets based on max speed
+      this.generateSpeedPresets(maxSpeed);
+
+      // Load enhanced features
+      this.elements.audioControlToggle.checked = result.audioBoolean || false;
+      this.elements.visualControllerToggle.checked = !(result.startHidden || false);
 
       // Load shortcuts with validation
       if (result.shortcuts && this.isValidShortcutsObject(result.shortcuts)) {
@@ -288,6 +304,17 @@ class PopupController {
           this.setupEducationalPlatform(response.educationalPlatform, response.platformConfig);
         } else {
           this.hideEducationalSection();
+        }
+
+        // Update debug info
+        if (this.elements.debugVideoCount) {
+          this.elements.debugVideoCount.textContent = response.videoCount || 0;
+        }
+        if (this.elements.debugControllers) {
+          this.elements.debugControllers.textContent = response.controllerCount || 0;
+        }
+        if (this.elements.debugPlatform) {
+          this.elements.debugPlatform.textContent = response.educationalPlatform || 'None';
         }
       }
     } catch (error) {
@@ -346,6 +373,42 @@ class PopupController {
     }
   }
 
+  async handleEnhancedFeatureToggle(settingKey, enabled) {
+    try {
+      await chrome.storage.sync.set({ [settingKey]: enabled });
+      
+      let message = '';
+      switch (settingKey) {
+        case 'audioBoolean':
+          message = `Audio control ${enabled ? 'enabled' : 'disabled'}`;
+          break;
+        case 'startHidden':
+          message = `Visual controller ${enabled ? 'hidden' : 'visible'} by default`;
+          break;
+      }
+      
+      this.showMessage(message, 'success');
+      
+      // Notify content script about the change
+      if (this.currentTab && this.currentTab.url && this.currentTab.url.startsWith('http')) {
+        try {
+          console.log(`Sending enhanced setting update: ${settingKey} = ${enabled}`);
+          const response = await chrome.tabs.sendMessage(this.currentTab.id, {
+            action: 'updateEnhancedSetting',
+            setting: settingKey,
+            value: enabled
+          });
+          console.log('Content script response:', response);
+        } catch (contentError) {
+          console.log('Content script notification failed:', contentError.message);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving enhanced feature setting:', error);
+      this.showMessage('Error saving setting', 'error');
+    }
+  }
+
   async applyManualSpeed() {
     const speedValue = parseFloat(this.elements.speedInput.value);
     const maxSpeed = parseFloat(this.elements.maxSpeedInput.value) || 4.0;
@@ -376,10 +439,12 @@ class PopupController {
       
       // Notify content script about max speed change
       if (this.currentTab) {
-        await chrome.tabs.sendMessage(this.currentTab.id, {
+        console.log(`[Popup] Sending updateMaxSpeed message: ${maxSpeedValue} to tab ${this.currentTab.id}`);
+        const response = await chrome.tabs.sendMessage(this.currentTab.id, {
           action: 'updateMaxSpeed',
           maxSpeed: maxSpeedValue
         });
+        console.log(`[Popup] updateMaxSpeed response:`, response);
       }
     } catch (error) {
       console.error('Error saving max speed:', error);
@@ -437,20 +502,73 @@ class PopupController {
   }
 
   updatePresetButtons(currentSpeed) {
-    this.elements.presetBtns.forEach(btn => {
-      const btnSpeed = parseFloat(btn.dataset.speed);
-      if (Math.abs(btnSpeed - currentSpeed) < 0.01) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
+    // Use the new dynamic method
+    this.updateSpeedPresetButtons(currentSpeed);
   }
 
   updateMaxPresetButtons(currentMaxSpeed) {
     this.elements.maxPresetBtns.forEach(btn => {
       const btnSpeed = parseFloat(btn.dataset.speed);
       if (Math.abs(btnSpeed - currentMaxSpeed) < 0.01) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+    
+    // Update speed presets based on max speed
+    this.generateSpeedPresets(currentMaxSpeed);
+  }
+
+  generateSpeedPresets(maxSpeed) {
+    // Clear existing presets
+    this.elements.speedPresets.innerHTML = '';
+    
+    // Define speed preset configurations based on max speed
+    let speedPresets = [];
+    
+    if (maxSpeed <= 4.0) {
+      // For max speed 4.0x or less
+      speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
+    } else if (maxSpeed <= 6.0) {
+      // For max speed 6.0x
+      speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0];
+    } else if (maxSpeed <= 8.0) {
+      // For max speed 8.0x
+      speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+    } else {
+      // For max speed 10.0x
+      speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0];
+    }
+    
+    // Filter presets to only include those within the max speed limit
+    speedPresets = speedPresets.filter(speed => speed <= maxSpeed);
+    
+    // Create preset buttons
+    speedPresets.forEach(speed => {
+      const button = document.createElement('button');
+      button.className = 'preset-btn';
+      button.dataset.speed = speed;
+      button.textContent = `${speed}x`;
+      
+      // Add click event listener
+      button.addEventListener('click', () => {
+        this.elements.speedInput.value = speed;
+        this.applySpeed(speed);
+        this.updateSpeedPresetButtons(speed);
+      });
+      
+      this.elements.speedPresets.appendChild(button);
+    });
+    
+    console.log(`Generated ${speedPresets.length} speed presets for max speed ${maxSpeed}x:`, speedPresets);
+  }
+
+  updateSpeedPresetButtons(currentSpeed) {
+    const presetButtons = this.elements.speedPresets.querySelectorAll('.preset-btn');
+    presetButtons.forEach(btn => {
+      const btnSpeed = parseFloat(btn.dataset.speed);
+      if (Math.abs(btnSpeed - currentSpeed) < 0.01) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');

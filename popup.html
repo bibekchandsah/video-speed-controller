@@ -65,13 +65,8 @@
           </div>
           <button id="applySpeedBtn" class="apply-btn">Apply Speed</button>
         </div>
-        <div class="speed-presets">
-          <button class="preset-btn" data-speed="0.5">0.5x</button>
-          <button class="preset-btn" data-speed="0.75">0.75x</button>
-          <button class="preset-btn" data-speed="1.0">1.0x</button>
-          <button class="preset-btn" data-speed="1.25">1.25x</button>
-          <button class="preset-btn" data-speed="1.5">1.5x</button>
-          <button class="preset-btn" data-speed="2.0">2.0x</button>
+        <div class="speed-presets" id="speedPresets">
+          <!-- Speed presets will be dynamically generated based on max speed -->
         </div>
       </section>
 
@@ -110,6 +105,32 @@
         </div>
       </section>
 
+      <!-- Enhanced Features Section -->
+      <section class="setting-section">
+        <div class="setting-header">
+          <h2>Enhanced Features</h2>
+          <p class="setting-description">Advanced video control options</p>
+        </div>
+        <div class="enhanced-features">
+          <div class="feature-toggle">
+            <label class="toggle-switch">
+              <input type="checkbox" id="audioControlToggle">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="feature-label">Control Audio Elements</span>
+          </div>
+          <div class="feature-toggle">
+            <label class="toggle-switch">
+              <input type="checkbox" id="visualControllerToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="feature-label">Show Visual Controller</span>
+          </div>
+
+        </div>
+
+      </section>
+
       <!-- Debug Section (Hidden by default) -->
       <section class="setting-section debug-section" id="debugSection" style="display: none;">
         <div class="setting-header">
@@ -129,6 +150,10 @@
           <div class="debug-item">
             <span class="debug-label">Platform Detected:</span>
             <span class="debug-value" id="debugPlatform">None</span>
+          </div>
+          <div class="debug-item">
+            <span class="debug-label">Controllers Active:</span>
+            <span class="debug-value" id="debugControllers">0</span>
           </div>
         </div>
       </section>

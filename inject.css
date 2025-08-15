@@ -1,0 +1,193 @@
+/* Video Speed Controller - Enhanced Styles */
+
+.vsc-nosource {
+  display: none !important;
+}
+
+.vsc-hidden {
+  display: none !important;
+}
+
+.vsc-manual {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.vcs-show {
+  visibility: visible !important;
+  opacity: 1 !important;
+  transition: opacity 0.3s ease !important;
+}
+
+/* Site-specific overrides for better compatibility */
+
+/* YouTube player */
+.ytp-hide-info-bar .vsc-controller {
+  position: relative;
+  top: 10px;
+}
+
+.ytp-autohide .vsc-controller {
+  visibility: hidden;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+
+.ytp-autohide .vcs-show {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* YouTube embedded player */
+.html5-video-player:not(.ytp-hide-info-bar) .vsc-controller {
+  position: relative;
+  top: 60px;
+}
+
+/* Facebook player */
+#facebook .vsc-controller {
+  position: relative;
+  top: 40px;
+}
+
+/* Google Photos player */
+a[aria-label^="Video"] .vsc-controller {
+  position: relative;
+  top: 35px;
+}
+
+#player .house-brand .vsc-controller {
+  position: relative;
+  top: 50px;
+}
+
+/* Netflix player */
+#netflix-player:not(.player-cinema-mode) .vsc-controller {
+  position: relative;
+  top: 85px;
+}
+
+/* Vine.co */
+.video-container .vine-video-container .vsc-controller {
+  margin-left: 40px;
+}
+
+/* YouTube 3D controller */
+.ytp-webgl-spherical-control {
+  top: 60px !important;
+}
+
+.ytp-fullscreen .ytp-webgl-spherical-control {
+  top: 100px !important;
+}
+
+/* Vimeo video overlay fix */
+div.video-wrapper + div.target {
+  height: 0;
+}
+
+/* Kickstarter black overlay fix */
+div.video-player.has_played.vertically_center:before,
+div.legacy-video-player.has_played.vertically_center:before {
+  content: none !important;
+}
+
+/* OpenAI video player fix */
+.Shared-Video-player > .vsc-controller {
+  height: 0;
+}
+
+/* Coursera player */
+.rc-VideoPlayer .vsc-controller {
+  position: relative;
+  top: 40px;
+}
+
+/* Udemy player */
+.video-player .vsc-controller {
+  position: relative;
+  top: 45px;
+}
+
+/* Khan Academy player */
+.ka-video-player .vsc-controller {
+  position: relative;
+  top: 35px;
+}
+
+/* Apna College player */
+.plyr__video-wrapper .vsc-controller {
+  position: relative;
+  top: 40px;
+}
+
+/* Twitch player */
+.video-player .vsc-controller {
+  position: relative;
+  top: 50px;
+}
+
+/* Amazon Prime Video */
+.dv-player-fullscreen .vsc-controller {
+  position: relative;
+  top: 80px;
+}
+
+/* Disney+ player */
+.btm-media-overlays-container .vsc-controller {
+  position: relative;
+  top: 60px;
+}
+
+/* Hulu player */
+.video-player .vsc-controller {
+  position: relative;
+  top: 55px;
+}
+
+/* General video container improvements */
+.vsc-controller {
+  pointer-events: auto !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Dragging state */
+.vcs-dragging {
+  cursor: -webkit-grabbing !important;
+  cursor: grabbing !important;
+}
+
+/* Ensure controller stays on top */
+.vsc-controller {
+  z-index: 2147483647 !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .vsc-controller {
+    font-size: 11px !important;
+  }
+  
+  .vsc-controller button {
+    padding: 2px 4px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .vsc-controller {
+    border: 2px solid white !important;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .vsc-controller,
+  .vcs-show {
+    transition: none !important;
+  }
+}
