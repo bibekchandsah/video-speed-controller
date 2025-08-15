@@ -1,4 +1,3 @@
-// Video Speed Controller - Popup Script
 // Handles popup UI interactions and communication with content script
 
 class PopupController {
@@ -64,7 +63,7 @@ class PopupController {
       debugPlatform: document.getElementById('debugPlatform'),
       debugControllers: document.getElementById('debugControllers')
     };
-    
+
     this.recordingShortcut = null;
     this.currentPlatform = null;
     this.platformConfig = null;
@@ -157,8 +156,8 @@ class PopupController {
     const authorInfo = document.querySelector('.author-info small');
     if (authorInfo) {
       authorInfo.addEventListener('click', () => {
-        chrome.tabs.create({ 
-          url: 'https://www.bibekchandsah.com.np/' 
+        chrome.tabs.create({
+          url: 'https://www.bibekchandsah.com.np/'
         });
       });
     }
@@ -167,8 +166,8 @@ class PopupController {
     const contributeInfo = document.querySelector('.contribute-info small');
     if (contributeInfo) {
       contributeInfo.addEventListener('click', () => {
-        chrome.tabs.create({ 
-          url: 'https://github.com/bibekchandsah/video-speed-controller' 
+        chrome.tabs.create({
+          url: 'https://github.com/bibekchandsah/video-speed-controller'
         });
       });
     }
@@ -223,7 +222,7 @@ class PopupController {
   async loadSettings() {
     try {
       console.log('Loading settings from Chrome storage...');
-      
+
       const result = await chrome.storage.sync.get([
         'persistenceEnabled',
         'globalEnabled',
@@ -232,19 +231,19 @@ class PopupController {
         'audioBoolean',
         'startHidden'
       ]);
-      
+
       console.log('Loaded settings:', result);
-      
+
       const persistenceEnabled = result.persistenceEnabled !== false;
       this.elements.persistenceToggle.checked = persistenceEnabled;
       this.elements.persistenceLabel.textContent = persistenceEnabled ? 'Enabled' : 'Disabled';
-      
+
       const maxSpeed = result.maxSpeed || 4.0;
       this.elements.maxSpeedInput.value = maxSpeed;
       this.elements.maxSpeedDisplay.textContent = `${maxSpeed}x`;
       this.elements.speedInput.max = maxSpeed;
       this.updateMaxPresetButtons(maxSpeed);
-      
+
       // Generate speed presets based on max speed
       this.generateSpeedPresets(maxSpeed);
 
@@ -260,7 +259,7 @@ class PopupController {
         console.log('Using default shortcuts (no valid shortcuts found in storage)');
         // Keep default shortcuts from constructor
       }
-      
+
       this.updateShortcutDisplay();
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -270,15 +269,15 @@ class PopupController {
 
   isValidShortcutsObject(shortcuts) {
     if (!shortcuts || typeof shortcuts !== 'object') return false;
-    
+
     const requiredKeys = ['increase', 'decrease', 'reset'];
     return requiredKeys.every(key => {
       const shortcut = shortcuts[key];
-      return shortcut && 
-             typeof shortcut.key === 'string' && 
-             typeof shortcut.shift === 'boolean' &&
-             typeof shortcut.ctrl === 'boolean' &&
-             typeof shortcut.alt === 'boolean';
+      return shortcut &&
+        typeof shortcut.key === 'string' &&
+        typeof shortcut.shift === 'boolean' &&
+        typeof shortcut.ctrl === 'boolean' &&
+        typeof shortcut.alt === 'boolean';
     });
   }
 
@@ -298,7 +297,7 @@ class PopupController {
         this.elements.currentDomain.textContent = response.domain || 'Unknown';
         this.updatePresetButtons(response.currentSpeed);
         this.elements.speedInput.value = response.currentSpeed;
-        
+
         // Handle educational platform features
         if (response.educationalPlatform && response.platformConfig) {
           this.setupEducationalPlatform(response.educationalPlatform, response.platformConfig);
@@ -319,16 +318,16 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      
+
       // Only retry once to prevent infinite loops
       if (!isRetry) {
         try {
           console.log('Attempting to inject content script and retry...');
           await this.injectContentScript();
-          
+
           // Wait a bit for the script to initialize
           await new Promise(resolve => setTimeout(resolve, 1500));
-          
+
           await this.updateStatus(true); // Retry with flag
         } catch (retryError) {
           console.error('Retry failed:', retryError);
@@ -342,15 +341,15 @@ class PopupController {
   }
 
   handleUpdateStatusFailure() {
-    this.elements.currentDomain.textContent = this.currentTab?.url ? 
+    this.elements.currentDomain.textContent = this.currentTab?.url ?
       new URL(this.currentTab.url).hostname : 'Unknown';
     this.hideEducationalSection();
-    
+
     // Show a helpful message based on the URL
-    if (this.currentTab?.url?.startsWith('chrome://') || 
-        this.currentTab?.url?.startsWith('chrome-extension://') ||
-        this.currentTab?.url?.startsWith('edge://') ||
-        this.currentTab?.url?.startsWith('about:')) {
+    if (this.currentTab?.url?.startsWith('chrome://') ||
+      this.currentTab?.url?.startsWith('chrome-extension://') ||
+      this.currentTab?.url?.startsWith('edge://') ||
+      this.currentTab?.url?.startsWith('about:')) {
       this.showMessage('Extension cannot run on browser internal pages', 'error');
     } else if (!this.currentTab?.url?.startsWith('http')) {
       this.showMessage('Extension only works on web pages (http/https)', 'error');
@@ -364,7 +363,7 @@ class PopupController {
       await chrome.storage.sync.set({ persistenceEnabled: enabled });
       this.elements.persistenceLabel.textContent = enabled ? 'Enabled' : 'Disabled';
       this.showMessage(
-        `Auto-apply speeds ${enabled ? 'enabled' : 'disabled'}`, 
+        `Auto-apply speeds ${enabled ? 'enabled' : 'disabled'}`,
         'success'
       );
     } catch (error) {
@@ -376,7 +375,7 @@ class PopupController {
   async handleEnhancedFeatureToggle(settingKey, enabled) {
     try {
       await chrome.storage.sync.set({ [settingKey]: enabled });
-      
+
       let message = '';
       switch (settingKey) {
         case 'audioBoolean':
@@ -386,9 +385,9 @@ class PopupController {
           message = `Visual controller ${enabled ? 'hidden' : 'visible'} by default`;
           break;
       }
-      
+
       this.showMessage(message, 'success');
-      
+
       // Notify content script about the change
       if (this.currentTab && this.currentTab.url && this.currentTab.url.startsWith('http')) {
         try {
@@ -412,7 +411,7 @@ class PopupController {
   async applyManualSpeed() {
     const speedValue = parseFloat(this.elements.speedInput.value);
     const maxSpeed = parseFloat(this.elements.maxSpeedInput.value) || 4.0;
-    
+
     if (isNaN(speedValue) || speedValue < 0.25 || speedValue > maxSpeed) {
       this.showMessage(`Please enter a speed between 0.25x and ${maxSpeed}x`, 'error');
       return;
@@ -424,7 +423,7 @@ class PopupController {
 
   async saveMaxSpeed() {
     const maxSpeedValue = parseFloat(this.elements.maxSpeedInput.value);
-    
+
     if (isNaN(maxSpeedValue) || maxSpeedValue < 2.0 || maxSpeedValue > 10.0) {
       this.showMessage('Please enter a max speed between 2.0x and 10.0x', 'error');
       return;
@@ -436,7 +435,7 @@ class PopupController {
       this.elements.speedInput.max = maxSpeedValue;
       this.updateMaxPresetButtons(maxSpeedValue);
       this.showMessage(`Maximum speed set to ${maxSpeedValue}x`, 'success');
-      
+
       // Notify content script about max speed change
       if (this.currentTab) {
         console.log(`[Popup] Sending updateMaxSpeed message: ${maxSpeedValue} to tab ${this.currentTab.id}`);
@@ -476,21 +475,21 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error applying speed:', error);
-      
+
       // Only retry once to prevent infinite loops
       if (!isRetry) {
         try {
           console.log('Attempting fallback speed application...');
-          
+
           // Try YouTube fallback if it's YouTube
           if (this.currentTab.url.includes('youtube.com')) {
             await this.applyYouTubeFallback(speed);
             return;
           }
-          
+
           // For other sites, try generic fallback
           await this.applyGenericFallback(speed);
-          
+
         } catch (retryError) {
           console.error('All fallback methods failed:', retryError);
           this.showMessage('Error: Could not control video speed. Try refreshing the page.', 'error');
@@ -515,7 +514,7 @@ class PopupController {
         btn.classList.remove('active');
       }
     });
-    
+
     // Update speed presets based on max speed
     this.generateSpeedPresets(currentMaxSpeed);
   }
@@ -523,13 +522,13 @@ class PopupController {
   generateSpeedPresets(maxSpeed) {
     // Clear existing presets
     this.elements.speedPresets.innerHTML = '';
-    
+
     // Define speed preset configurations based on max speed
     let speedPresets = [];
-    
+
     if (maxSpeed <= 4.0) {
       // For max speed 4.0x or less
-      speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
+      speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.5, 4.0];
     } else if (maxSpeed <= 6.0) {
       // For max speed 6.0x
       speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0];
@@ -540,27 +539,27 @@ class PopupController {
       // For max speed 10.0x
       speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0];
     }
-    
+
     // Filter presets to only include those within the max speed limit
     speedPresets = speedPresets.filter(speed => speed <= maxSpeed);
-    
+
     // Create preset buttons
     speedPresets.forEach(speed => {
       const button = document.createElement('button');
       button.className = 'preset-btn';
       button.dataset.speed = speed;
       button.textContent = `${speed}x`;
-      
+
       // Add click event listener
       button.addEventListener('click', () => {
         this.elements.speedInput.value = speed;
         this.applySpeed(speed);
         this.updateSpeedPresetButtons(speed);
       });
-      
+
       this.elements.speedPresets.appendChild(button);
     });
-    
+
     console.log(`Generated ${speedPresets.length} speed presets for max speed ${maxSpeed}x:`, speedPresets);
   }
 
@@ -580,12 +579,12 @@ class PopupController {
     this.recordingShortcut = shortcutType;
     const button = this.elements[`record${shortcutType.charAt(0).toUpperCase() + shortcutType.slice(1)}Btn`];
     const input = this.elements[`${shortcutType}Shortcut`];
-    
+
     button.textContent = 'Recording...';
     button.classList.add('recording');
     input.classList.add('recording');
     input.value = 'Press keys...';
-    
+
     // Stop recording after 5 seconds
     setTimeout(() => {
       if (this.recordingShortcut === shortcutType) {
@@ -596,32 +595,32 @@ class PopupController {
 
   stopRecording() {
     if (!this.recordingShortcut) return;
-    
+
     const shortcutType = this.recordingShortcut;
     const button = this.elements[`record${shortcutType.charAt(0).toUpperCase() + shortcutType.slice(1)}Btn`];
     const input = this.elements[`${shortcutType}Shortcut`];
-    
+
     button.textContent = 'Record';
     button.classList.remove('recording');
     input.classList.remove('recording');
-    
+
     this.recordingShortcut = null;
     this.updateShortcutDisplay();
   }
 
   recordKeyPress(event) {
     if (!this.recordingShortcut) return;
-    
+
     // Ignore modifier-only keys
     const modifierKeys = [
-      'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 
+      'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight',
       'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight'
     ];
-    
+
     if (modifierKeys.includes(event.code)) {
       return; // Don't record modifier keys alone
     }
-    
+
     // Only record if we have a non-modifier key
     const shortcut = {
       key: event.code,
@@ -629,7 +628,7 @@ class PopupController {
       ctrl: event.ctrlKey,
       alt: event.altKey
     };
-    
+
     this.shortcuts[this.recordingShortcut] = shortcut;
     this.stopRecording();
   }
@@ -643,13 +642,13 @@ class PopupController {
       }
 
       console.log('Saving shortcuts:', this.shortcuts);
-      
+
       // Save to Chrome storage
       await chrome.storage.sync.set({ shortcuts: this.shortcuts });
       console.log('Shortcuts saved to storage successfully');
-      
+
       this.showMessage('Shortcuts saved successfully!', 'success');
-      
+
       // Notify content script about shortcut changes (non-blocking)
       if (this.currentTab && this.currentTab.url && this.currentTab.url.startsWith('http')) {
         try {
@@ -665,7 +664,7 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error saving shortcuts:', error);
-      
+
       // Provide more specific error messages
       let errorMessage = 'Error saving shortcuts';
       if (error.message.includes('QUOTA_BYTES')) {
@@ -675,7 +674,7 @@ class PopupController {
       } else if (error.message.includes('MAX_WRITE_OPERATIONS')) {
         errorMessage = 'Too many save operations. Please wait a moment and try again.';
       }
-      
+
       this.showMessage(errorMessage, 'error');
     }
   }
@@ -701,9 +700,9 @@ class PopupController {
         return false;
       }
 
-      if (typeof shortcut.shift !== 'boolean' || 
-          typeof shortcut.ctrl !== 'boolean' || 
-          typeof shortcut.alt !== 'boolean') {
+      if (typeof shortcut.shift !== 'boolean' ||
+        typeof shortcut.ctrl !== 'boolean' ||
+        typeof shortcut.alt !== 'boolean') {
         console.error(`Invalid modifier flags for shortcut: ${shortcutType}`);
         return false;
       }
@@ -719,12 +718,12 @@ class PopupController {
         decrease: { key: 'Comma', shift: true, ctrl: false, alt: false },
         reset: { key: 'KeyR', shift: true, ctrl: false, alt: false }
       };
-      
+
       console.log('Resetting shortcuts to default:', this.shortcuts);
-      
+
       await this.saveShortcuts();
       this.updateShortcutDisplay();
-      
+
       // Only show reset message if save was successful
       if (this.validateShortcuts()) {
         this.showMessage('Shortcuts reset to default', 'success');
@@ -741,7 +740,7 @@ class PopupController {
       if (shortcut.ctrl) keys.push('Ctrl');
       if (shortcut.alt) keys.push('Alt');
       if (shortcut.shift) keys.push('Shift');
-      
+
       let keyName = this.getKeyDisplayName(shortcut.key);
       keys.push(keyName);
       return keys.join('+');
@@ -750,13 +749,13 @@ class PopupController {
     this.elements.increaseShortcut.value = formatShortcut(this.shortcuts.increase);
     this.elements.decreaseShortcut.value = formatShortcut(this.shortcuts.decrease);
     this.elements.resetShortcut.value = formatShortcut(this.shortcuts.reset);
-    
+
     // Update footer display
     const increaseText = formatShortcut(this.shortcuts.increase);
     const decreaseText = formatShortcut(this.shortcuts.decrease);
     const resetText = formatShortcut(this.shortcuts.reset);
-    
-    this.elements.shortcutDisplay.textContent = 
+
+    this.elements.shortcutDisplay.textContent =
       `Shortcuts: ${increaseText} (faster) | ${decreaseText} (slower) | ${resetText} (reset)`;
   }
 
@@ -813,14 +812,14 @@ class PopupController {
   async testChromeStorage() {
     try {
       console.log('Testing Chrome storage...');
-      
+
       // Test write
       const testKey = 'test_' + Date.now();
       const testValue = { test: true, timestamp: Date.now() };
-      
+
       await chrome.storage.sync.set({ [testKey]: testValue });
       console.log('Chrome storage write test: SUCCESS');
-      
+
       // Test read
       const result = await chrome.storage.sync.get([testKey]);
       if (result[testKey] && result[testKey].test === true) {
@@ -828,11 +827,11 @@ class PopupController {
       } else {
         throw new Error('Read test failed');
       }
-      
+
       // Clean up test data
       await chrome.storage.sync.remove([testKey]);
       console.log('Chrome storage cleanup: SUCCESS');
-      
+
       return true;
     } catch (error) {
       console.error('Chrome storage test failed:', error);
@@ -844,44 +843,44 @@ class PopupController {
   setupEducationalPlatform(platform, config) {
     this.currentPlatform = platform;
     this.platformConfig = config;
-    
+
     // Show educational section
     this.elements.educationalSection.style.display = 'block';
     this.elements.platformStatusItem.style.display = 'flex';
-    
+
     // Update platform info
     this.elements.platformName.textContent = config.name;
     this.elements.platformStatus.textContent = config.name;
-    
+
     // Add platform-specific styling
     this.elements.educationalSection.className = `setting-section platform-${platform}`;
-    
+
     // Create educational speed presets
     this.createEducationalPresets(config);
-    
+
     console.log(`Educational platform setup: ${config.name}`);
   }
 
   createEducationalPresets(config) {
     this.elements.educationalPresets.innerHTML = '';
-    
+
     config.recommendedSpeeds.forEach(speed => {
       const button = document.createElement('button');
       button.className = 'educational-preset-btn';
       button.textContent = `${speed}x`;
       button.dataset.speed = speed;
-      
+
       // Mark recommended speeds
       if (speed === config.defaultSpeed) {
         button.classList.add('recommended');
         button.title = 'Recommended for this platform';
       }
-      
+
       button.addEventListener('click', async () => {
         await this.applyEducationalSpeed(speed);
         this.updateEducationalPresets(speed);
       });
-      
+
       this.elements.educationalPresets.appendChild(button);
     });
   }
@@ -894,7 +893,7 @@ class PopupController {
 
     try {
       await this.ensureContentScriptLoaded();
-      
+
       const response = await chrome.tabs.sendMessage(this.currentTab.id, {
         action: 'applyEducationalSpeed',
         speed: speed
@@ -910,7 +909,7 @@ class PopupController {
       }
     } catch (error) {
       console.error('Error applying educational speed:', error);
-      
+
       // Try fallback method for common platforms like YouTube
       if (this.currentTab.url.includes('youtube.com')) {
         await this.applyYouTubeFallback(speed);
@@ -936,7 +935,7 @@ class PopupController {
         },
         args: [speed]
       });
-      
+
       const result = results[0]?.result;
       if (result?.success) {
         this.elements.currentSpeed.textContent = `${speed}x`;
@@ -959,7 +958,7 @@ class PopupController {
         func: (targetSpeed) => {
           const videos = document.querySelectorAll('video');
           let successCount = 0;
-          
+
           videos.forEach(video => {
             try {
               video.playbackRate = targetSpeed;
@@ -968,17 +967,17 @@ class PopupController {
               console.log('Failed to set speed on video:', e);
             }
           });
-          
-          return { 
-            success: successCount > 0, 
+
+          return {
+            success: successCount > 0,
             videoCount: videos.length,
             successCount: successCount,
-            speed: targetSpeed 
+            speed: targetSpeed
           };
         },
         args: [speed]
       });
-      
+
       const result = results[0]?.result;
       if (result?.success) {
         this.elements.currentSpeed.textContent = `${speed}x`;
@@ -1026,7 +1025,7 @@ class PopupController {
 
     try {
       await this.ensureContentScriptLoaded();
-      
+
       const response = await chrome.tabs.sendMessage(this.currentTab.id, {
         action: 'debugVideoDetection'
       });
@@ -1048,7 +1047,7 @@ class PopupController {
 
     try {
       await this.ensureContentScriptLoaded();
-      
+
       const response = await chrome.tabs.sendMessage(this.currentTab.id, {
         action: 'forceVideoScan'
       });
@@ -1068,7 +1067,7 @@ class PopupController {
     const isVisible = this.elements.debugInfo.style.display !== 'none';
     this.elements.debugInfo.style.display = isVisible ? 'none' : 'block';
     this.elements.toggleDebugBtn.textContent = isVisible ? 'Show Debug Info' : 'Hide Debug Info';
-    
+
     if (!isVisible) {
       // Update debug info when showing
       this.updateDebugInfo();
@@ -1098,7 +1097,7 @@ class PopupController {
         chrome.tabs.sendMessage(this.currentTab.id, { action: 'ping' }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), 1000))
       ]);
-      
+
       if (response && response.pong) {
         console.log('Content script is already loaded and responding');
         return true; // Content script is already loaded
@@ -1110,10 +1109,10 @@ class PopupController {
 
     // Inject the content script
     await this.injectContentScript();
-    
+
     // Wait a bit for the script to initialize
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     return true;
   }
 
@@ -1135,7 +1134,7 @@ class PopupController {
         target: { tabId: this.currentTab.id },
         files: ['content.js']
       });
-      
+
       console.log('Content script injected successfully');
     } catch (error) {
       console.error('Failed to inject content script:', error);

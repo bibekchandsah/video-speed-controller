@@ -1,4 +1,3 @@
-// Video Speed Controller - Content Script
 // Enhanced version with improved compatibility and features
 
 var regStrip = /^[\r\t\f\v ]+|[\r\t\f\v ]+$/gm;
@@ -14,9 +13,6 @@ var tc = {
     controllerOpacity: 0.3,
     keyBindings: [],
     blacklist: `\
-      www.instagram.com
-      twitter.com
-      vine.co
       imgur.com
       teams.microsoft.com
       `.replace(regStrip, "")
@@ -81,14 +77,13 @@ class VideoSpeedController {
         startHidden: false,
         controllerOpacity: 0.3,
         keyBindings: [
-          { action: "slower", key: 83, value: 0.1, force: false, predefined: true }, // S
-          { action: "faster", key: 68, value: 0.1, force: false, predefined: true }, // D
+          { action: "slower", key: 83, value: 0.25, force: false, predefined: true }, // S
+          { action: "faster", key: 68, value: 0.25, force: false, predefined: true }, // D
           { action: "rewind", key: 90, value: 10, force: false, predefined: true }, // Z
-          { action: "advance", key: 88, value: 10, force: false, predefined: true }, // X
+          { action: "forward", key: 88, value: 10, force: false, predefined: true }, // X
+          { action: "fast", key: 71, value: 5, force: false, predefined: true }, // G
           { action: "reset", key: 82, value: 1.0, force: false, predefined: true }, // R
-          { action: "fast", key: 71, value: 1.8, force: false, predefined: true }, // G
           { action: "display", key: 86, value: 0, force: false, predefined: true }, // V
-          { action: "pause", key: 32, value: 0, force: false, predefined: false }, // Space
           { action: "muted", key: 77, value: 0, force: false, predefined: false } // M
         ],
         blacklist: tc.settings.blacklist,
@@ -362,6 +357,11 @@ class VideoSpeedController {
   }
 
   runAction(action, value, targetElement = null) {
+    // Sync current speed before any speed-related actions
+    if (action === 'faster' || action === 'slower' || action === 'reset' || action === 'fast') {
+      this.syncCurrentSpeed();
+    }
+
     const mediaTags = tc.settings.audioBoolean ? 
       this.getShadowElements(document.body).filter(x => x.tagName == "AUDIO" || x.tagName == "VIDEO") :
       this.getShadowElements(document.body).filter(x => x.tagName == "VIDEO");
@@ -397,21 +397,28 @@ class VideoSpeedController {
       case "rewind":
         video.currentTime -= value;
         break;
-      case "advance":
+      case "forward":
         video.currentTime += value;
         break;
       case "faster":
-        console.log(`[VideoSpeedController] Faster action: current=${this.currentSpeed}, value=${value}, maxSpeed=${this.maxSpeed}`);
+        // Ensure we're using the most current speed from the actual video
+        const currentVideoSpeed = video.playbackRate || this.currentSpeed;
+        this.currentSpeed = currentVideoSpeed; // Sync the global state
+        console.log(`[VideoSpeedController] Faster action: video=${currentVideoSpeed}, global=${this.currentSpeed}, value=${value}, maxSpeed=${this.maxSpeed}`);
         const fasterSpeed = Math.min(
-          (this.currentSpeed < 0.1 ? 0.0 : this.currentSpeed) + value,
+          (currentVideoSpeed < 0.1 ? 0.0 : currentVideoSpeed) + value,
           this.maxSpeed
         );
         console.log(`[VideoSpeedController] Calculated faster speed: ${fasterSpeed}`);
         this.setSpeed(Number(fasterSpeed.toFixed(2)));
         break;
       case "slower":
-        const slowerSpeed = Math.max(this.currentSpeed - value, 0.07);
-        console.log(`[VideoSpeedController] Slower action: current=${this.currentSpeed}, value=${value}, calculated=${slowerSpeed}`);
+        // Ensure we're using the most current speed from the actual video
+        const currentVideoSpeedSlow = video.playbackRate || this.currentSpeed;
+        this.currentSpeed = currentVideoSpeedSlow; // Sync the global state
+        console.log(`[VideoSpeedController] Slower action: video=${currentVideoSpeedSlow}, global=${this.currentSpeed}, value=${value}`);
+        const slowerSpeed = Math.max(currentVideoSpeedSlow - value, 0.07);
+        console.log(`[VideoSpeedController] Calculated slower speed: ${slowerSpeed}`);
         this.setSpeed(Number(slowerSpeed.toFixed(2)));
         break;
       case "reset":
@@ -585,6 +592,20 @@ class VideoSpeedController {
   decreaseSpeed() {
     const newSpeed = Math.max(0.25, this.currentSpeed - 0.25);
     this.setSpeed(newSpeed);
+  }
+
+  syncCurrentSpeed() {
+    // Sync currentSpeed with the actual video playback rates
+    if (this.videos.size > 0) {
+      const firstVideo = Array.from(this.videos)[0];
+      if (firstVideo && firstVideo.playbackRate) {
+        const videoSpeed = firstVideo.playbackRate;
+        if (Math.abs(videoSpeed - this.currentSpeed) > 0.01) {
+          console.log(`[VideoSpeedController] Syncing currentSpeed from ${this.currentSpeed} to ${videoSpeed}`);
+          this.currentSpeed = parseFloat(videoSpeed.toFixed(2));
+        }
+      }
+    }
   }
 
   setSpeed(speed) {
@@ -1082,22 +1103,26 @@ class EnhancedVideoController {
   handleRatechange(event) {
     if (event.target.readyState > 0) {
       const speed = this.getSpeed();
+      const speedFloat = parseFloat(speed);
+      
       if (this.speedIndicator) {
         this.speedIndicator.textContent = speed;
       }
-      tc.settings.speeds[this.video.currentSrc] = parseFloat(speed);
-      tc.settings.lastSpeed = parseFloat(speed);
-      this.speed = parseFloat(speed);
+      tc.settings.speeds[this.video.currentSrc] = speedFloat;
+      tc.settings.lastSpeed = speedFloat;
+      this.speed = speedFloat;
+      
+      // Update main controller immediately and synchronously
+      this.mainController.currentSpeed = speedFloat;
+      console.log(`[VideoSpeedController] Rate change: Updated currentSpeed to ${speedFloat}`);
       
       // Save to storage (both lastSpeed and domain-specific speed)
       const domain = window.location.hostname;
       chrome.storage.sync.set({ 
-        lastSpeed: parseFloat(speed),
-        [`speed_${domain}`]: parseFloat(speed)
+        lastSpeed: speedFloat,
+        [`speed_${domain}`]: speedFloat
       });
       
-      // Update main controller
-      this.mainController.currentSpeed = parseFloat(speed);
       this.mainController.updateBadge();
       this.mainController.showSpeedDisplay();
       
@@ -1208,7 +1233,7 @@ class EnhancedVideoController {
           <button data-action="rewind" class="rw">«</button>
           <button data-action="slower">-</button>
           <button data-action="faster">+</button>
-          <button data-action="advance" class="rw">»</button>
+          <button data-action="forward" class="rw">»</button>
           <button data-action="display" class="hideButton">x</button>
         </span>
       </div>
